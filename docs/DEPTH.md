@@ -1,6 +1,6 @@
 # 深度登记 qualiscore（抽样数据质量评分与缺失模式）
 
-- 规模：中型（7 个功能模块 / 6 个应用页 / 97 条测试）
+- 规模：中型（7 个功能模块 / 6 个应用页 / 113 条测试）
 - 核心规则：**MAD 稳健 z + 退化回退 + 封顶加权评分**。逐格先判三态（缺失 / 格式不合格 / 有值），
   再按列算中位数与 MAD；`z = 0.6745 × (x − 中位数) / MAD`，MAD=0 时回退 `spread = 0.6745 × IQR / 1.349`，
   离散度低于「列刻度 × 5」或 MAD 与 IQR 同为 0 判退化；评分 = 100 − 缺失 30 − 重复 25 − 离群 20 − 格式 25，
@@ -14,11 +14,11 @@
 |---|---|---|---|---|
 | M1 数据采信 | 选样例或上传 CSV，看逐行诊断与隔离行 | POST /api/datasets/import、POST /api/datasets/upload、GET /api/datasets/{name}/rows | `app/modules/m1_ingest/decode.py` `app/modules/m1_ingest/reader.py` `app/modules/m1_ingest/sniff.py` `app/modules/m1_ingest/service.py` | `tests/test_m1_ingest.py` |
 | M2 字段画像 | 看每列填充率、基数、格式率、取值范围 | GET /api/profile、POST /api/profile/cell、页面 /profile | `app/modules/m2_profile/formats.py` `app/modules/m2_profile/column_stats.py` `app/modules/m2_profile/profile.py` `app/modules/m2_profile/service.py` | `tests/test_m2_profile.py` |
-| M3 缺失模式 | 看单元格账、连续缺失段、共缺对 | GET /api/missing、页面 /missing | `app/modules/m3_missing/cells.py` `app/modules/m3_missing/runs.py` `app/modules/m3_missing/matrix.py` `app/modules/m3_missing/service.py` | `tests/test_m3_missing.py` |
+| M3 缺失模式 | 看单元格账、连续缺失段、共缺对、原因组主因/次要关联归属 | GET /api/missing、页面 /missing | `app/modules/m3_missing/cells.py` `app/modules/m3_missing/runs.py` `app/modules/m3_missing/matrix.py` `app/modules/m3_missing/attribution.py` `app/modules/m3_missing/service.py` | `tests/test_m3_missing.py`、`tests/test_m3_attribution.py` |
 | M4 重复判定 | 看全行重复组与同键冲突的原值对照 | GET /api/duplicates、页面 /duplicates | `app/modules/m4_duplicates/hashdup.py` `app/modules/m4_duplicates/keydup.py` `app/modules/m4_duplicates/groups.py` `app/modules/m4_duplicates/service.py` | `tests/test_m4_duplicates.py` |
 | M5 稳健离群 | 看逐列中位数、MAD、回退方法与离群格 | GET /api/outliers、页面 /outliers | `app/modules/m5_outliers/robust.py` `app/modules/m5_outliers/zscore.py` `app/modules/m5_outliers/flags.py` `app/modules/m5_outliers/service.py` | `tests/test_m5_outliers.py` |
-| M6 评分与批次 | 跑一次评分、查运行历史、看五项对账、重跑 | POST /api/score、GET /api/batches、GET /api/reconcile、页面 /batches | `app/modules/m6_score/score.py` `app/modules/m6_score/grade.py` `app/modules/m6_score/runstore.py` `app/modules/m6_score/service.py` | `tests/test_m6_score.py` |
-| M7 报告导出 | 看报告页、导出六种 CSV 与运行清单 | GET /、GET /api/export/* | `app/modules/m7_export/report.py` `app/modules/m7_export/csv_out.py` `app/modules/m7_export/manifest_out.py` `app/modules/m7_export/service.py` | `tests/test_m7_export.py` |
+| M6 评分与批次 | 跑一次评分、查运行历史、看七项对账、重跑 | POST /api/score、GET /api/batches、GET /api/reconcile、页面 /batches | `app/modules/m6_score/score.py` `app/modules/m6_score/grade.py` `app/modules/m6_score/runstore.py` `app/modules/m6_score/service.py` | `tests/test_m6_score.py` |
+| M7 报告导出 | 看报告页、导出八种 CSV 与运行清单（含归属账、逐格归属证据） | GET /、GET /api/export/* | `app/modules/m7_export/report.py` `app/modules/m7_export/csv_out.py` `app/modules/m7_export/manifest_out.py` `app/modules/m7_export/service.py` | `tests/test_m7_export.py`、`tests/test_m3_attribution.py` |
 
 端到端：`tests/test_e2e.py`（HTTP 走完采信 → 评分 → 六页 200 → 八种导出；含上传、失败输入、陈旧版本 409）。
 不变量：`tests/test_invariants.py`（行分区、单元格分区、分数闭合、幂等重跑、重复分区、顺序无关、缺失扣分单调）。
@@ -38,10 +38,13 @@
 | TRAP-19 | 一个单元格同时像缺失、越界、离群 | 按代码顺序覆盖，分项之和大于总分 | 固定优先级缺失 > 格式不合格 > 离群，一格只进一个桶 | `app/modules/m5_outliers/flags.py`、`app/modules/m2_profile/formats.py` | `tests/test_m5_outliers.py::test_priority_missing_over_range_over_outlier` |
 | TRAP-22 | 同一组重复行打乱顺序 | 代表行随顺序变化，导出结果不可复现 | 代表行取最小原始行号，组排序按代表行号 | `app/modules/m4_duplicates/groups.py`、`app/modules/m4_duplicates/hashdup.py` | `tests/test_m4_duplicates.py::test_order_independence_of_groups` |
 | TRAP-26 | 旧页面提交覆盖新结果 | 后提交无条件写入，新版本被旧数据顶掉 | 同名数据集版本自增，`expected_version` 落后即 409 | `app/modules/m6_score/runstore.py` | `tests/test_m6_score.py::test_stale_submission_rejected`、`tests/test_e2e.py::test_stale_version_conflict_over_http` |
+| TRAP-27 | 区域格同时命中「受理人+区域」「区域+满意度」两个原因组 | 全量重复归属把同一格的扣分与整改量算两遍；只归一个组又切断共缺追查 | 一格只裁决一个主原因（共缺优先、同档按组配置顺序），其余命中组只登记次要关联；不命中组进未归属，主因+未归属=缺失格闭口 | `app/modules/m3_missing/attribution.py`、`app/config.py` | `tests/test_m3_attribution.py::test_primary_partition_closes_without_double_count`、`tests/test_m3_attribution.py::test_co_missing_overlap_prefers_partner_group` |
+| TRAP-28 | 归属规则改了，旧运行被当成同输入复用 | 新旧口径混在一条记录里，页面对不上账 | 原因组字段集与裁决次序参与规则摘要，改归属规则即换 digest，旧运行保留、新运行另出版本 | `app/manifest.py` | `tests/test_m3_attribution.py::test_retry_does_not_add_group_or_double_score` |
+| TRAP-29 | 写入运行记录中途崩溃 | 半成品落库或上一版完整结果被破坏 | 运行记录单条 INSERT 随事务回滚，旧版本与数据集原文保留；同输入重试命中幂等复用，不新增原因组、不重复计分 | `app/store.py`、`app/modules/m6_score/runstore.py` | `tests/test_m3_attribution.py::test_interrupted_write_keeps_previous_run_intact` |
 
 ## 对账规则
 
-五项账在报告页、批次页、`/api/reconcile` 与运行清单里同源显示（脏样例实测值）：
+七项账在报告页、批次页、`/api/reconcile` 与运行清单里同源显示（脏样例实测值）：
 
 | 账 | 左侧 | 右侧 | 脏样例 |
 |---|---|---|---|
@@ -50,6 +53,13 @@
 | 单元格账 | 单元格 | 缺失 + 有值 | 510 = 14 + 496 |
 | 有值格账 | 有值 | 合格 + 格式不合格 | 496 = 494 + 2 |
 | 分数账 | 100 | 总分 + 扣分 | 100 = 65.24 + 34.76 |
+| 缺失主因账 | 缺失格 | 各原因组主原因 + 未归属 | 14 = 11 + 3 |
+| 缺失关联账 | 原因组命中 | 主原因 + 次要关联 | 16 = 11 + 5 |
+
+缺失原因组归属（脏样例）：`agent_region` 主原因 10、次要关联 0；
+`region_satisfaction` 主原因 1、次要关联 5；未归属 3（首响缺失不属任何组）。
+报告页、`/missing` 页、`attribution.csv`、`attribution_evidence.csv` 与 `manifest.json`
+读同一条运行快照，归属范围完全一致。
 
 ## 反例与不变量
 

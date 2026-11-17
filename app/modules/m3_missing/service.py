@@ -1,7 +1,7 @@
-"""M3 编排：单元格账 + 连续缺失段 + 缺失模式矩阵。"""
+"""M3 编排：单元格账 + 连续缺失段 + 缺失模式矩阵 + 原因组归属。"""
 from __future__ import annotations
 
-from . import cells, matrix, runs
+from . import attribution, cells, matrix, runs
 
 
 def build(profile: dict) -> dict:
@@ -14,6 +14,7 @@ def build(profile: dict) -> dict:
         "longest_run": runs.longest(found),
         "patterns": matrix.pattern_table(profile),
         "co_missing": matrix.co_missing(profile),
+        "attribution": attribution.build_attribution(profile),
     }
 
 

@@ -38,6 +38,17 @@ def export_missing(run_id: str | None = None, ctx: Ctx = Depends(get_ctx)):
     return service.export(ctx.store, "missing.csv", run_id)
 
 
+@router.get("/api/export/attribution.csv")
+def export_attribution(run_id: str | None = None, ctx: Ctx = Depends(get_ctx)):
+    return service.export(ctx.store, "attribution.csv", run_id)
+
+
+@router.get("/api/export/attribution_evidence.csv")
+def export_attribution_evidence(run_id: str | None = None,
+                                ctx: Ctx = Depends(get_ctx)):
+    return service.export(ctx.store, "attribution_evidence.csv", run_id)
+
+
 @router.get("/api/export/duplicates.csv")
 def export_duplicates(run_id: str | None = None, ctx: Ctx = Depends(get_ctx)):
     return service.export(ctx.store, "duplicates.csv", run_id)

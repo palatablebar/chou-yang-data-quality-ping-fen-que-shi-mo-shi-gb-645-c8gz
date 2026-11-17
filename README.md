@@ -14,11 +14,11 @@
 |---|---|
 | 采信 | 编码回退链、BOM 剥离、重复表头分段、列数校验、末行截断判定、空态三分 |
 | 画像 | 逐格三态（缺失 / 格式不合格 / 有值）、填充率、基数、格式率、取值范围、高频取值 |
-| 缺失模式 | 单元格账、连续缺失段（同列连续 ≥3 格）、缺失签名分组、共缺对 |
+| 缺失模式 | 单元格账、连续缺失段（同列连续 ≥3 格）、缺失签名分组、共缺对、原因组归属（一格一主因，重叠只留次要关联） |
 | 重复判定 | 全行哈希账与业务键账分开；同键不同值的两行都保留原值并列出冲突列 |
 | 稳健离群 | 中位数 + MAD 稳健 z，MAD=0 回退 IQR/1.349，离散度低于刻度下限判退化 |
 | 评分 | 100 − 缺失 30 − 重复 25 − 离群 20 − 格式 25，每维按容忍度封顶，Decimal 计分 |
-| 批次与导出 | run_id、输入 sha256、版本自增、同输入幂等复用、陈旧提交 409、六种 CSV + 清单 JSON |
+| 批次与导出 | run_id、输入 sha256、版本自增、同输入幂等复用、陈旧提交 409、八种 CSV（含归属账与逐格证据）+ 清单 JSON |
 
 ## 功能模块
 
@@ -26,7 +26,7 @@
 |---|---|---|---|
 | M1 数据采信 | `POST /api/datasets/import`、`POST /api/datasets/upload` | `app/modules/m1_ingest/decode.py`、`reader.py`、`sniff.py`、`service.py` | `tests/test_m1_ingest.py` |
 | M2 字段画像 | `GET /api/profile`、`POST /api/profile/cell`、页面 `/profile` | `app/modules/m2_profile/formats.py`、`column_stats.py`、`profile.py` | `tests/test_m2_profile.py` |
-| M3 缺失模式 | `GET /api/missing`、页面 `/missing` | `app/modules/m3_missing/cells.py`、`runs.py`、`matrix.py` | `tests/test_m3_missing.py` |
+| M3 缺失模式 | `GET /api/missing`、页面 `/missing` | `app/modules/m3_missing/cells.py`、`runs.py`、`matrix.py`、`attribution.py` | `tests/test_m3_missing.py`、`tests/test_m3_attribution.py` |
 | M4 重复判定 | `GET /api/duplicates`、页面 `/duplicates` | `app/modules/m4_duplicates/hashdup.py`、`keydup.py`、`groups.py` | `tests/test_m4_duplicates.py` |
 | M5 稳健离群 | `GET /api/outliers`、页面 `/outliers` | `app/modules/m5_outliers/robust.py`、`zscore.py`、`flags.py` | `tests/test_m5_outliers.py` |
 | M6 评分与批次 | `POST /api/score`、`GET /api/batches`、`GET /api/reconcile`、页面 `/batches` | `app/modules/m6_score/score.py`、`grade.py`、`runstore.py`、`service.py` | `tests/test_m6_score.py` |
@@ -45,6 +45,10 @@
    总分 = 100 − 扣分之和，恒在 [0, 100]，`总分 + 扣分之和 = 100` 逐位成立。
 5. **幂等与版本**：同名数据集按内容 sha256 + 规则版本 + 阈值摘要识别，
    同输入重跑返回同一运行记录；客户端版本落后于库里版本时返回 409。
+6. **缺失原因归属**：每个缺失格有且仅有一个主原因——命中多个原因组时共缺优先、
+   同档按组配置顺序裁决；其余命中组只保留次要关联，不重复计扣分与整改量；
+   不命中任何组进未归属。`缺失格 = 主原因 + 未归属`、`组命中 = 主原因 + 次要关联`
+   两条账在报告页与导出里同源闭口。原因组配置参与规则摘要。
 
 ## 启动
 
@@ -62,8 +66,9 @@ open http://127.0.0.1:18204/
 2. `/profile` 看待映射列与格式不合格；`/missing` 看连续缺失段与共缺对。
 3. `/duplicates` 看全行重复组与 `T-2026-000204` 的冲突列。
 4. `/outliers` 看 `first_response_min` 的极端值与 `satisfaction` 的退化标记。
-5. `/batches` 看版本、阈值与五项对账；再点「重跑」验证幂等复用。
-6. 任一页面底部导出 CSV，或直接 `curl /api/export/manifest.json` 取运行清单。
+5. `/batches` 看版本、阈值与七项对账；再点「重跑」验证幂等复用。
+6. 报告页「缺失原因归属」看主原因与次要关联，导出 `attribution.csv` 与
+   `attribution_evidence.csv` 核对同一归属范围；再 `curl /api/export/manifest.json` 取运行清单。
 
 ## API 与页面
 
@@ -81,8 +86,8 @@ open http://127.0.0.1:18204/
 | GET | `/api/outliers` | 逐列稳健统计与离群格 |
 | POST | `/api/score` | 跑一次评分（可带 `expected_version`） |
 | GET | `/api/batches` | 运行历史 |
-| GET | `/api/reconcile` | 五项对账 |
-| GET | `/api/export/report.csv` 等 | 六种 CSV + `manifest.json` |
+| GET | `/api/reconcile` | 七项对账（含缺失主因账、缺失关联账） |
+| GET | `/api/export/report.csv` 等 | 八种 CSV（含 `attribution.csv` 归属账、`attribution_evidence.csv` 逐格证据）+ `manifest.json` |
 | GET | `/`、`/profile`、`/missing`、`/duplicates`、`/outliers`、`/batches` | 六个页面 |
 
 ## 目录

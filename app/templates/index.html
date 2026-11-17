@@ -71,7 +71,50 @@
 </section>
 
 <section class="block">
-  <h2 class="block__title">对账<span class="block__hint">{% if report.balanced %}五项平衡{% else %}差异 {{ report.accounts|selectattr("balanced", "equalto", false)|list|length }} 项{% endif %}</span></h2>
+  <h2 class="block__title">缺失原因归属<span class="block__hint">{% if report.attribution.closed %}主因闭口{% else %}<span class="sev sev--severe">不闭口</span>{% endif %}</span></h2>
+  <p class="aside">{{ report.attribution.rule }}</p>
+  <table class="ledger">
+    <thead>
+      <tr><th>原因组</th><th>字段</th><th class="num">主原因格</th><th class="num">次要关联格</th><th class="num">命中格</th><th>口径</th></tr>
+    </thead>
+    <tbody>
+      {% for group in report.attribution.groups %}
+      <tr>
+        <td>{{ group.label }}<br><code class="mono">{{ group.key }}</code></td>
+        <td>{{ group.column_labels|join(" / ") }}</td>
+        <td class="num">{{ group.primary|intf }}</td>
+        <td class="num">{{ group.secondary|intf }}</td>
+        <td class="num">{{ group.eligible|intf }}</td>
+        <td><span class="tag">主因计扣分/整改</span>{% if group.secondary %} <span class="tag">关联只追查</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td>{{ report.attribution.unassigned.label }}<br><code class="mono">{{ report.attribution.unassigned.key }}</code></td>
+        <td>—</td>
+        <td class="num">{{ report.attribution.unassigned.primary|intf }}</td>
+        <td class="num">0</td>
+        <td class="num">{{ report.attribution.unassigned.primary|intf }}</td>
+        <td><span class="tag">保留记录不丢失</span></td>
+      </tr>
+    </tbody>
+    <tfoot>
+      <tr>
+        <td colspan="2">主因闭口：主原因 {{ report.attribution.primary_total|intf }} + 未归属 {{ report.attribution.unassigned.primary|intf }} = 缺失 {{ report.attribution.missing_total|intf }}</td>
+        <td class="num">{{ (report.attribution.primary_total + report.attribution.unassigned.primary)|intf }}</td>
+        <td class="num">{{ report.attribution.secondary_total|intf }}</td>
+        <td class="num">{{ report.attribution.eligible_total|intf }}</td>
+        <td>关联不计扣分</td>
+      </tr>
+    </tfoot>
+  </table>
+  <p class="links">
+    <a class="link" href="/api/export/attribution.csv">导出归属账 CSV</a>
+    <a class="link" href="/api/export/attribution_evidence.csv">导出逐格归属证据</a>
+  </p>
+</section>
+
+<section class="block">
+  <h2 class="block__title">对账<span class="block__hint">{% if report.balanced %}七项平衡{% else %}差异 {{ report.accounts|selectattr("balanced", "equalto", false)|list|length }} 项{% endif %}</span></h2>
   <table class="ledger">
     <thead>
       <tr><th>账</th><th class="num">左侧</th><th class="num">右侧</th><th class="num">差额</th><th>结论</th></tr>
@@ -155,6 +198,7 @@
   <p class="links">
     <a class="link" href="/api/export/report.csv">报告 CSV</a>
     <a class="link" href="/api/export/profile.csv">画像 CSV</a>
+    <a class="link" href="/api/export/attribution.csv">归属账 CSV</a>
     <a class="link" href="/api/export/quarantine.csv">隔离区 CSV</a>
     <a class="link" href="/api/export/manifest.json">运行清单 JSON</a>
   </p>

@@ -118,6 +118,22 @@ ALIASES: dict[str, tuple[str, ...]] = {
 }
 REQUIRED_COLUMNS = COLUMN_NAMES
 
+# 缺失原因组：抽检按字段集追缺失原因；同一格可能落进多个组（区域同时在两组里）。
+# 归属规则（app/modules/m3_missing/attribution.py 是唯一裁决处）：
+# - 每个缺失格有且仅有一个主原因：命中多个组时，先看本行是否与该组伙伴字段共缺，
+#   共缺优先；都不共缺或都共缺时按这里的组顺序（priority 小者优先）；
+# - 其余命中组只保留为次要关联，留共缺追查线索，但不重复计扣分与整改量；
+# - 不命中任何组的缺失格进 UNASSIGNED，绝不丢记录。
+# priority 即裁决次序，改动它会改变主原因归属，因此组配置参与规则摘要。
+MISSING_REASON_GROUPS: tuple[dict, ...] = (
+    {"key": "agent_region", "label": "受理人与区域缺失",
+     "columns": ("agent", "region")},
+    {"key": "region_satisfaction", "label": "区域与满意度缺失",
+     "columns": ("region", "satisfaction")},
+)
+UNASSIGNED_KEY = "unassigned"
+UNASSIGNED_LABEL = "未归属（不属任何原因组）"
+
 # 评分维度：封顶分值与容忍度（比率达到容忍度即扣满该维）
 WEIGHTS: tuple[dict, ...] = (
     {"key": "missing", "label": "缺失", "cap": "30", "tolerance": "0.0800"},

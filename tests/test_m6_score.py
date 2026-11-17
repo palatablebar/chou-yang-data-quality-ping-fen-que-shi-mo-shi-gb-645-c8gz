@@ -125,10 +125,11 @@ def test_manifest_carries_digest_and_thresholds(dirty_result):
     assert [stage["stage"] for stage in manifest["stages"]] == list(config.STAGES)
 
 
-def test_five_accounts_balanced(dirty_result):
+def test_seven_accounts_balanced(dirty_result):
     reconcile = dirty_result["reconcile"]
     assert [item["key"] for item in reconcile["accounts"]] == [
-        "rows", "accepted", "cells", "value", "score"]
+        "rows", "accepted", "cells", "value", "score",
+        "missing_primary", "missing_link"]
     for item in reconcile["accounts"]:
         assert Decimal(str(item["diff"])) == 0, item["key"]
         assert item["balanced"] is True
@@ -153,7 +154,8 @@ def test_batches_api_lists_runs(client):
 def test_reconcile_api_returns_accounts(client_with_run):
     body = client_with_run.get("/api/reconcile").json()
     assert [item["key"] for item in body["accounts"]] == [
-        "rows", "accepted", "cells", "value", "score"]
+        "rows", "accepted", "cells", "value", "score",
+        "missing_primary", "missing_link"]
     assert body["all_balanced"] is True
 
 

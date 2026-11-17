@@ -38,6 +38,8 @@ curl -s -X POST http://127.0.0.1:18204/api/datasets/upload \
 
 # 导出
 curl -s -o /tmp/report.csv http://127.0.0.1:18204/api/export/report.csv
+curl -s -o /tmp/attribution.csv http://127.0.0.1:18204/api/export/attribution.csv
+curl -s -o /tmp/attribution_evidence.csv http://127.0.0.1:18204/api/export/attribution_evidence.csv
 curl -s http://127.0.0.1:18204/api/export/manifest.json
 ```
 
@@ -83,6 +85,9 @@ python3 -m pytest -q
 ## 7 日志与排查
 
 - 容器日志：`docker compose logs -f app`。
-- 分数异常先看 `/batches` 的阈值表与五项对账；对账不平说明有单元格被重复计数。
+- 分数异常先看 `/batches` 的阈值表与七项对账；对账不平说明有单元格被重复计数。
+- 缺失扣分或整改量对不上时，看报告页「缺失原因归属」与 `attribution.csv`：
+  一个缺失格只有一个主原因，重叠组只在「次要关联格」留痕，不进主因合计；
+  逐格翻源行用 `attribution_evidence.csv`（行号 + 主原因组 + 归属原因码）。
 - 离群数为 0 时先看 `/outliers` 的「退化列」：满意度一类 1-5 分刻度默认判退化。
 - 每份导出都能在 `/api/export/manifest.json` 里找到同一次运行的 `run_id` 与输入摘要。

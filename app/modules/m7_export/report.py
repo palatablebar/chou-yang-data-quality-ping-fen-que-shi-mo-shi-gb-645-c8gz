@@ -29,6 +29,7 @@ def build(result: dict) -> dict:
                                             -Decimal(item["format_rate"]),
                                             item["name"]))
     counters = result["manifest"]["counters"]
+    attribution = result["missing"]["attribution"]
     return {
         "run": result["run"],
         "dataset": result["dataset"],
@@ -47,6 +48,16 @@ def build(result: dict) -> dict:
         "empty_columns": result["profile"]["counts"]["empty_columns"],
         "accounts": result["reconcile"]["accounts"],
         "balanced": result["reconcile"]["all_balanced"],
+        "attribution": {
+            "groups": attribution["groups"],
+            "unassigned": attribution["unassigned"],
+            "primary_total": attribution["primary_total"],
+            "secondary_total": attribution["secondary_total"],
+            "eligible_total": attribution["eligible_total"],
+            "missing_total": attribution["missing_total"],
+            "closed": attribution["closed"],
+            "rule": attribution["rule"],
+        },
         "stages": result["manifest"]["stages"],
         "thresholds": result["manifest"]["thresholds"],
         "manifest": result["manifest"],

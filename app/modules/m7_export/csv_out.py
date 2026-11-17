@@ -42,6 +42,15 @@ def report_csv(result: dict) -> str:
         ["缺失单元格", counters["cells_missing"], "格", ""],
         ["离群单元格", counters["outlier_cells"], "格", "有值的子集"],
     ])
+    # 归属口径与报告页「缺失原因归属」同源：主因计扣分/整改，次要关联不重复计分。
+    attribution = result["missing"]["attribution"]
+    for group in attribution["groups"]:
+        rows.append([f"缺失主因·{group['label']}", group["primary"], "格",
+                     f"次要关联 {group['secondary']} 格不计分；命中 {group['eligible']} 格"])
+    rows.append(["缺失未归属", attribution["unassigned"]["primary"], "格",
+                 "不属任何原因组，记录保留不丢失"])
+    rows.append(["缺失次要关联合计", attribution["secondary_total"], "格",
+                 "只留共缺追查线索，不进主因合计、不重复扣分"])
     return csv_text(["项目", "数值", "单位", "备注"], rows)
 
 
@@ -68,6 +77,44 @@ def missing_csv(result: dict) -> str:
                      extra.get("longest", 0)])
     return csv_text(["列名", "列标题", "缺失", "有值", "缺失率", "连续段数",
                      "最长段"], rows)
+
+
+def attribution_csv(result: dict) -> str:
+    """原因组归属账：与报告页同一归属范围，主原因与次要关联分栏，不重复计分。"""
+    attribution = result["missing"]["attribution"]
+    rows = []
+    for group in attribution["groups"]:
+        rows.append([group["key"], group["label"],
+                     " / ".join(group["column_labels"]),
+                     group["primary"], group["secondary"], group["eligible"],
+                     "主原因计扣分与整改；次要关联只留追查线索"])
+    rows.append([attribution["unassigned"]["key"],
+                 attribution["unassigned"]["label"], "—",
+                 attribution["unassigned"]["primary"], 0,
+                 attribution["unassigned"]["primary"],
+                 "不属任何原因组，保留记录不丢失"])
+    rows.append(["__total__", "缺失格合计（主因闭口）", "—",
+                 attribution["primary_total"]
+                 + attribution["unassigned"]["primary"],
+                 attribution["secondary_total"], attribution["eligible_total"],
+                 "主原因+未归属 = 缺失格总数 "
+                 f"{attribution['missing_total']}"])
+    return csv_text(["原因组", "组名称", "字段", "主原因格", "次要关联格",
+                     "命中格", "归属口径"], rows)
+
+
+def attribution_evidence_csv(result: dict) -> str:
+    """逐格归属证据：每个缺失格一行，主原因唯一、次要关联可追。"""
+    rows = []
+    for item in result["missing"]["attribution"]["evidence"]:
+        secondary_code = ("K_SECONDARY_LINK" if item["secondary_groups"] else "")
+        rows.append([item["lineno"], item["column"], item["column_label"],
+                     item["raw"], item["code"], item["role"], item["role_code"],
+                     item["primary_group"], item["primary_label"],
+                     " ".join(item["secondary_groups"]), secondary_code])
+    return csv_text(["行号", "列名", "列标题", "原值", "缺失原因码", "归属角色",
+                     "归属原因码", "主原因组", "主原因组名称", "次要关联组",
+                     "次要关联原因码"], rows)
 
 
 def duplicates_csv(result: dict) -> str:

@@ -96,6 +96,9 @@ def run(settings: config.Settings, store, *, name: str | None = None,
         "outlier_cells": counts["outlier_cells"],
         "tested_cells": counts["tested_cells"],
         "segments": ingest["segments"],
+        "missing_primary": missing["attribution"]["primary_total"],
+        "missing_unassigned": missing["attribution"]["unassigned"]["primary"],
+        "missing_secondary_links": missing["attribution"]["secondary_total"],
     }
     version = store.latest_version(ingest["name"]) + 1
     run_id = manifest.new_run_id()
@@ -201,6 +204,15 @@ def _reconcile(ingest: dict, profile: dict, missing: dict, duplicates: dict,
                  "有值 = 合格 + 格式不合格"),
         _account("score", "分数账", Decimal("100"), total_score + penalty_sum,
                  "总分 + 扣分 = 100"),
+        _account("missing_primary", "缺失主因账", cells_missing,
+                 missing["attribution"]["primary_total"]
+                 + missing["attribution"]["unassigned"]["primary"],
+                 "缺失格 = 各原因组主原因 + 未归属（一格一主因，不重不漏）"),
+        _account("missing_link", "缺失关联账",
+                 missing["attribution"]["eligible_total"],
+                 missing["attribution"]["primary_total"]
+                 + missing["attribution"]["secondary_total"],
+                 "原因组命中 = 主原因 + 次要关联（次要关联不重复计分）"),
     ]
     return {
         "accounts": accounts,
@@ -209,6 +221,14 @@ def _reconcile(ingest: dict, profile: dict, missing: dict, duplicates: dict,
         "missing_runs": len(missing["runs"]),
         "key_conflicts": len(duplicates["conflicts"]),
         "degenerate_columns": [item["column"] for item in outliers["degenerate"]],
+        "attribution": {
+            "closed": missing["attribution"]["closed"],
+            "groups": missing["attribution"]["groups"],
+            "unassigned": missing["attribution"]["unassigned"],
+            "primary_total": missing["attribution"]["primary_total"],
+            "secondary_total": missing["attribution"]["secondary_total"],
+            "missing_total": missing["attribution"]["missing_total"],
+        },
     }
 
 

@@ -69,6 +69,30 @@ def test_missing_csv_has_runs_columns(client_with_run):
     assert "agent,受理人,5,46,0.0980,1,4" in text
 
 
+def test_report_csv_and_attribution_share_same_scope(client_with_run):
+    """报告 CSV 的归属行与归属账 CSV 必须是同一归属范围、同一组数字。"""
+    report = get_csv(client_with_run, "report.csv")
+    ledger = get_csv(client_with_run, "attribution.csv")
+    # 报告 CSV 带主因、未归属与次要关联口径。
+    assert "缺失主因·受理人与区域缺失,10,格" in report
+    assert "缺失主因·区域与满意度缺失,1,格" in report
+    assert "缺失未归属,3,格" in report
+    assert "缺失次要关联合计,5,格" in report
+    # 归属账里同样的主因/关联数字，两边对得上。
+    assert "agent_region" in ledger and ",10,0,10," in ledger
+    assert "region_satisfaction" in ledger and ",1,5,6," in ledger
+
+
+def test_attribution_csv_bom_and_total_closure(client_with_run):
+    text = get_csv(client_with_run, "attribution.csv")
+    assert text.startswith("﻿")
+    # 闭口合计行：主原因 11 + 未归属 3 = 缺失 14。
+    assert "__total__" in text
+    total_line = next(line for line in text.splitlines() if line.startswith("__total__"))
+    cells = total_line.lstrip("﻿").split(",")
+    assert cells[3] == "14" and cells[4] == "5" and cells[5] == "16"
+
+
 def test_manifest_json_matches_run(client_with_run):
     latest = client_with_run.get("/api/score/latest").json()
     response = client_with_run.get("/api/export/manifest.json")
@@ -77,9 +101,13 @@ def test_manifest_json_matches_run(client_with_run):
     assert payload["run_id"] == latest["run"]["run_id"]
     assert payload["input_digest"] == latest["run"]["digest"]
     assert payload["score"] == expected.DIRTY["score"]
-    assert len(payload["accounts"]) == 5
+    assert len(payload["accounts"]) == 7
     assert payload["all_balanced"] is True
     assert isinstance(payload["weights"], list) and len(payload["weights"]) == 4
+    attribution = payload["attribution"]
+    assert attribution["closed"] is True
+    assert {item["key"] for item in attribution["groups"]} == {
+        "agent_region", "region_satisfaction"}
 
 
 def test_export_without_run_returns_404(client):

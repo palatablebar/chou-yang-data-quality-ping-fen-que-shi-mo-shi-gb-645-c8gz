@@ -86,9 +86,45 @@
 </section>
 
 <section class="block">
+  <h2 class="block__title">缺失原因归属<span class="block__hint">{% if missing.attribution.closed %}<b class="ok">主因闭口</b>{% else %}<b class="bad">不闭口</b>{% endif %}</span></h2>
+  <p class="aside">{{ missing.attribution.rule }}</p>
+  <table class="ledger">
+    <thead>
+      <tr><th>原因组</th><th>字段</th><th class="num">主原因格</th><th class="num">次要关联格</th><th class="num">命中格</th></tr>
+    </thead>
+    <tbody>
+      {% for group in missing.attribution.groups %}
+      <tr>
+        <td>{{ group.label }} <code class="mono">{{ group.key }}</code></td>
+        <td>{{ group.column_labels|join(" / ") }}</td>
+        <td class="num">{{ group.primary|intf }}</td>
+        <td class="num">{{ group.secondary|intf }}</td>
+        <td class="num">{{ group.eligible|intf }}</td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <td>{{ missing.attribution.unassigned.label }} <code class="mono">{{ missing.attribution.unassigned.key }}</code></td>
+        <td>—</td>
+        <td class="num">{{ missing.attribution.unassigned.primary|intf }}</td>
+        <td class="num">0</td>
+        <td class="num">{{ missing.attribution.unassigned.primary|intf }}</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="statline">
+    <span>主原因合计 <b class="num">{{ missing.attribution.primary_total|intf }}</b></span>
+    <span>未归属 <b class="num">{{ missing.attribution.unassigned.primary|intf }}</b></span>
+    <span>次要关联 <b class="num">{{ missing.attribution.secondary_total|intf }}</b></span>
+    <span>缺失格 <b class="num">{{ missing.attribution.missing_total|intf }}</b></span>
+  </p>
+</section>
+
+<section class="block">
   <h2 class="block__title">导出</h2>
   <p class="links">
     <a class="link" href="/api/export/missing.csv">导出缺失</a>
+    <a class="link" href="/api/export/attribution.csv">导出归属账</a>
+    <a class="link" href="/api/export/attribution_evidence.csv">逐格归属证据</a>
     <a class="link" href="/api/export/quarantine.csv">隔离区 CSV</a>
   </p>
 </section>

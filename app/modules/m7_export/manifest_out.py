@@ -30,6 +30,7 @@ def build(result: dict) -> dict:
         "counters": manifest["counters"],
         "accounts": manifest["accounts"],
         "all_balanced": manifest["all_balanced"],
+        "attribution": result["reconcile"]["attribution"],
         "stages": manifest["stages"],
         "weights": [{"key": item["key"], "cap": item["cap"],
                      "tolerance": item["tolerance"]} for item in config.WEIGHTS],

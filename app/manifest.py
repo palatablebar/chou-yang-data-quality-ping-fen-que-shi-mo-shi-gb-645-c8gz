@@ -38,6 +38,9 @@ def rules_digest(rule_version: str) -> str:
         parts.append(f"{item['grade']}:{item['floor']}")
     parts.extend([f"mad={config.MAD_SCALE}", f"iqr={config.IQR_SCALE}",
                   f"z={config.ROBUST_Z_LIMIT}", f"run={config.MISSING_RUN_MIN}"])
+    # 原因组字段集与裁决次序也参与摘要：调整归属规则后旧运行不复用、不被覆盖。
+    for group in config.MISSING_REASON_GROUPS:
+        parts.append("reason_group:" + group["key"] + ":" + "|".join(group["columns"]))
     return digest_parts(parts)
 
 
